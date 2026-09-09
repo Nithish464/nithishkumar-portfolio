@@ -6,15 +6,15 @@ A modern, responsive developer portfolio built with **Next.js 14** and **TypeScr
 
 ---
 
-## ✨ Features
+## Features
 
-- ⚡ Built with Next.js 14 App Router + TypeScript
-- 🎨 Premium dark-themed, fully responsive UI
-- 🖱️ Smooth animated hover states and transitions
-- 🗂️ Featured projects, experience, education & skills sections
-- 🐙 Live GitHub repository browser (fetches repos at runtime via the public GitHub API)
-- 📄 Downloadable resume button
-- 🚀 Deployed on Vercel with continuous deployment from `main`
+- Built with Next.js 14 App Router + TypeScript
+-  Premium dark-themed, fully responsive UI
+-  Smooth animated hover states and transitions
+-  Featured projects, experience, education & skills sections
+-  Live GitHub repository browser (fetches repos at runtime via the public GitHub API)
+-  Downloadable resume button
+-  Deployed on Vercel with continuous deployment from `main`
 
 ---
 
@@ -44,7 +44,7 @@ Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 nithish-portfolio/
@@ -75,7 +75,7 @@ Update the following to personalize the portfolio:
 
 ---
 
-## ☁️ Deployment
+##  Deployment
 
 This project is deployed on **Vercel**.
 
@@ -94,10 +94,10 @@ vercel
 
 ---
 
-## 📬 Contact
+##  Contact
 
 Feel free to reach out via the contact section on the live site, or connect on LinkedIn/GitHub.
 
 ---
 
-⭐ If you like this project, consider giving it a star on GitHub!
+ If you like this project, consider giving it a star on GitHub!
