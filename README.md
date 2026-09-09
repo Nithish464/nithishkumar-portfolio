@@ -18,7 +18,7 @@ A modern, responsive developer portfolio built with **Next.js 14** and **TypeScr
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Category   | Technology |
 |------------|-----------|
@@ -29,7 +29,7 @@ A modern, responsive developer portfolio built with **Next.js 14** and **TypeScr
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 Clone the repository and install dependencies:
 
@@ -64,7 +64,7 @@ nithish-portfolio/
 
 ---
 
-## ⚙️ Configuration
+##  Configuration
 
 Update the following to personalize the portfolio:
 
