@@ -11,57 +11,116 @@ export type GitHubProject = {
   updated_at: string
   fork: boolean
   archived: boolean
+  default_branch: string
   demoUrl: string | null
   qualityScore: number
 }
 
+type GitHubRepo = {
+  id: number
+  name: string
+  html_url: string
+  homepage: string | null
+  description: string | null
+  language: string | null
+  stargazers_count: number
+  forks_count: number
+  topics?: string[]
+  updated_at: string
+  fork: boolean
+  archived: boolean
+  default_branch: string
+}
+
 const GITHUB_USERNAME = "Nithish464"
 
-const DEMO_DOMAINS = [
+const DEPLOYMENT_DOMAINS = [
   "vercel.app",
   "netlify.app",
-  "onrender.com",
-  "railway.app",
+  "github.io",
   "pages.dev",
-  "web.app",
-  "firebaseapp.com",
-  "streamlit.app",
-  "hf.space",
+  "onrender.com",
+  "render.com",
+  "railway.app",
+  "fly.dev",
+  "herokuapp.com",
+  "azurewebsites.net",
 ]
 
-function isValidUrl(value: string) {
+const ENGINEERING_KEYWORDS = [
+  "typescript",
+  "javascript",
+  "react",
+  "next.js",
+  "nextjs",
+  "node.js",
+  "nodejs",
+  "express",
+  "fastapi",
+  "flask",
+  "postgresql",
+  "postgres",
+  "mongodb",
+  "mysql",
+  "docker",
+  "docker-compose",
+  "redis",
+  "kafka",
+  "ci/cd",
+  "github actions",
+  "jwt",
+  "selenium",
+  "pytest",
+  "playwright",
+  "cypress",
+  "machine learning",
+  "deep learning",
+  "generative ai",
+  "genai",
+  "rag",
+  "llm",
+  "artificial intelligence",
+  "data engineering",
+  "etl",
+  "rest api",
+  "api",
+]
+
+function normalizeUrl(url: string): string {
+  const value = url.trim()
+
+  if (/^https?:\/\//i.test(value)) {
+    return value
+  }
+
+  return `https://${value}`
+}
+
+function isValidUrl(url: string): boolean {
   try {
-    const url = new URL(value)
+    const parsed = new URL(normalizeUrl(url))
 
     return (
-      url.protocol === "http:" ||
-      url.protocol === "https:"
+      parsed.protocol === "http:" ||
+      parsed.protocol === "https:"
     )
   } catch {
     return false
   }
 }
 
-function cleanUrl(value: string) {
-  return value
-    .trim()
-    .replace(/[),.;]+$/, "")
-    .replace(/^<|>$/g, "")
-}
-
-function isDemoUrl(value: string) {
-  const url = cleanUrl(value)
-
+function isDeploymentUrl(url: string): boolean {
   if (!isValidUrl(url)) {
     return false
   }
 
   try {
-    const parsed = new URL(url)
-    const hostname = parsed.hostname.toLowerCase()
+    const hostname = new URL(
+      normalizeUrl(url)
+    ).hostname.toLowerCase()
 
-    return DEMO_DOMAINS.some(
-      (domain) =>
+    return DEPLOYMENT_DOMAINS.some(
+      domain =>
         hostname === domain ||
         hostname.endsWith(`.${domain}`)
     )
@@ -70,152 +129,108 @@ function isDemoUrl(value: string) {
   }
 }
 
-function extractDemoUrl(readme: string): string | null {
-  if (!readme) {
-    return null
+function extractUrls(text: string): string[] {
+  const matches = text.match(
+    /https?:\/\/[^\s<>"')\]]+/gi
+  )
+
+  return matches || []
+}
+
+function findDemoUrl(
+  repo: GitHubRepo,
+  readme: string
+): string | null {
+  // 1. Repository homepage
+  if (
+    repo.homepage &&
+    isDeploymentUrl(repo.homepage)
+  ) {
+    return normalizeUrl(repo.homepage)
   }
 
-  /*
-   * Examples:
-   *
-   * [Live Demo](https://...)
-   * [Demo](https://...)
-   * [View Demo](https://...)
-   * [Website](https://...)
-   */
-  const markdownLinkRegex =
-    /\[(?:live\s*demo|demo|live|view\s*demo|website|live\s*site|deployed\s*app)\]\(\s*(https?:\/\/[^\s)]+)\s*\)/gi
-
-  const markdownMatches = [
-    ...readme.matchAll(markdownLinkRegex),
+  // 2. Explicit README demo links
+  const patterns = [
+    /\[live\s*demo\]\((https?:\/\/[^)\s]+)\)/i,
+    /\[demo\]\((https?:\/\/[^)\s]+)\)/i,
+    /\[live\s*site\]\((https?:\/\/[^)\s]+)\)/i,
+    /\[deployed\]\((https?:\/\/[^)\s]+)\)/i,
+    /live\s*demo\s*[:\-]\s*(https?:\/\/[^\s]+)/i,
+    /live\s*site\s*[:\-]\s*(https?:\/\/[^\s]+)/i,
+    /demo\s*url\s*[:\-]\s*(https?:\/\/[^\s]+)/i,
+    /demo\s*[:\-]\s*(https?:\/\/[^\s]+)/i,
+    /deployment\s*[:\-]\s*(https?:\/\/[^\s]+)/i,
   ]
 
-  for (const match of markdownMatches) {
-    const url = cleanUrl(match[1])
+  for (const pattern of patterns) {
+    const match = readme.match(pattern)
 
-    if (isValidUrl(url)) {
-      return url
+    if (match?.[1]) {
+      const url = match[1].replace(
+        /[.,;:]+$/,
+        ""
+      )
+
+      if (isDeploymentUrl(url)) {
+        return normalizeUrl(url)
+      }
     }
   }
 
-  /*
-   * Examples:
-   *
-   * Live Demo: https://...
-   * Demo: https://...
-   * Live URL: https://...
-   * Deployed App: https://...
-   */
-  const labelledUrlRegex =
-    /(?:live\s*demo|demo|live\s*url|live\s*site|website|deployed\s*app|deployment|try\s*it\s*live)\s*[:\-]\s*(https?:\/\/[^\s<>"')]+)\b/gi
+  // 3. Search README for deployment URLs
+  const urls = extractUrls(readme)
 
-  const labelledMatches = [
-    ...readme.matchAll(labelledUrlRegex),
-  ]
+  for (const url of urls) {
+    const cleanedUrl = url.replace(
+      /[.,;:]+$/,
+      ""
+    )
 
-  for (const match of labelledMatches) {
-    const url = cleanUrl(match[1])
-
-    if (isValidUrl(url)) {
-      return url
-    }
-  }
-
-  /*
-   * Search common deployment URLs anywhere
-   * inside README.
-   */
-  const genericUrlRegex =
-    /https?:\/\/[^\s<>"')]+/gi
-
-  const urls = [
-    ...readme.matchAll(genericUrlRegex),
-  ]
-
-  for (const match of urls) {
-    const url = cleanUrl(match[0])
-
-    if (isDemoUrl(url)) {
-      return url
+    if (isDeploymentUrl(cleanedUrl)) {
+      return normalizeUrl(cleanedUrl)
     }
   }
 
   return null
 }
 
-async function fetchReadme(
-  owner: string,
-  repo: string
-): Promise<string> {
-  try {
-    const response = await fetch(
-      `https://api.github.com/repos/${owner}/${repo}/readme`,
-      {
-        next: {
-          revalidate: 3600,
-        },
-        headers: {
-          Accept: "application/vnd.github.raw+json",
-        },
-      }
-    )
-
-    if (!response.ok) {
-      return ""
-    }
-
-    return await response.text()
-  } catch {
-    return ""
-  }
-}
-
 function calculateQualityScore(
-  repo: GitHubProject,
-  demoUrl: string | null,
-  readme: string
-) {
+  repo: GitHubRepo,
+  readme: string,
+  demoUrl: string | null
+): number {
   let score = 0
 
-  const text = readme.toLowerCase()
+  const combinedText = `
+    ${repo.name}
+    ${repo.description || ""}
+    ${repo.language || ""}
+    ${(repo.topics || []).join(" ")}
+    ${readme}
+  `.toLowerCase()
 
-  /*
-   * ==========================================
-   * LIVE / DEMO
-   * ==========================================
-   */
-
+  // Live demo
   if (demoUrl) {
     score += 100
   }
 
-  /*
-   * ==========================================
-   * PROJECT COMPLETENESS
-   * ==========================================
-   */
-
+  // Description
   if (repo.description?.trim()) {
     score += 15
   }
 
+  // Language
   if (repo.language) {
     score += 5
   }
 
-  if (repo.topics?.length) {
-    score += Math.min(
-      repo.topics.length * 2,
-      10
-    )
-  }
+  // Topics
+  score += Math.min(
+    (repo.topics?.length || 0) * 2,
+    10
+  )
 
-  /*
-   * ==========================================
-   * README QUALITY
-   * ==========================================
-   */
-
+  // README quality
   if (readme.length >= 500) {
     score += 10
   }
@@ -224,114 +239,69 @@ function calculateQualityScore(
     score += 10
   }
 
-  /*
-   * README important sections
-   */
-
+  // Documentation
   if (
-    /installation|setup|getting started/.test(text)
-  ) {
-    score += 5
-  }
-
-  if (
-    /features|key features/.test(text)
-  ) {
-    score += 5
-  }
-
-  if (
-    /architecture|system architecture/.test(text)
-  ) {
-    score += 8
-  }
-
-  if (
-    /testing|test cases|pytest|selenium|playwright|cypress/.test(
-      text
+    /installation|install|setup|getting started|usage/i.test(
+      readme
     )
   ) {
     score += 5
   }
 
-  /*
-   * ==========================================
-   * ENGINEERING SIGNALS
-   * ==========================================
-   */
+  if (/features|feature/i.test(readme)) {
+    score += 5
+  }
 
-  const engineeringKeywords = [
-    "typescript",
-    "javascript",
-    "react",
-    "next.js",
-    "nextjs",
-    "node.js",
-    "nodejs",
-    "express",
-    "fastapi",
-    "flask",
-    "postgresql",
-    "mongodb",
-    "docker",
-    "docker-compose",
-    "redis",
-    "kafka",
-    "ci/cd",
-    "github actions",
-    "jwt",
-    "selenium",
-    "pytest",
-    "playwright",
-    "cypress",
-    "machine learning",
-    "deep learning",
-    "generative ai",
-    "genai",
-    "rag",
-    "llm",
-    "artificial intelligence",
-  ]
+  if (
+    /architecture|system architecture|workflow|system design/i.test(
+      readme
+    )
+  ) {
+    score += 8
+  }
 
-  const matchedKeywords =
-    engineeringKeywords.filter(
-      (keyword) => text.includes(keyword)
-    ).length
+  // Testing
+  if (
+    /testing|tests|test cases|pytest|selenium|playwright|cypress/i.test(
+      readme
+    )
+  ) {
+    score += 5
+  }
+
+  // Engineering technologies
+  const matchedKeywords = new Set<string>()
+
+  for (const keyword of ENGINEERING_KEYWORDS) {
+    if (combinedText.includes(keyword)) {
+      matchedKeywords.add(keyword)
+    }
+  }
 
   score += Math.min(
-    matchedKeywords * 2,
+    matchedKeywords.size,
     20
   )
 
-  /*
-   * ==========================================
-   * GITHUB POPULARITY
-   * ==========================================
-   */
-
+  // Stars
   score += Math.min(
-    repo.stargazers_count * 8,
+    repo.stargazers_count * 5,
     40
   )
 
+  // Forks
   score += Math.min(
     repo.forks_count * 5,
     25
   )
 
-  /*
-   * ==========================================
-   * RECENT ACTIVITY
-   * ==========================================
-   */
-
-  const updatedTime =
-    new Date(repo.updated_at).getTime()
-
-  const now = Date.now()
+  // Recent activity
+  const updatedAt = new Date(
+    repo.updated_at
+  ).getTime()
 
   const daysSinceUpdate =
-    Math.max(now - updatedTime, 0) /
+    (Date.now() - updatedAt) /
     (1000 * 60 * 60 * 24)
 
   if (daysSinceUpdate <= 30) {
@@ -347,103 +317,172 @@ function calculateQualityScore(
   return score
 }
 
-export async function getGitHubProjects(): Promise<
-  GitHubProject[]
-> {
+async function fetchRepositories(): Promise<GitHubRepo[]> {
   try {
     const response = await fetch(
       `https://api.github.com/users/${GITHUB_USERNAME}/repos?per_page=100&sort=updated`,
       {
+        headers: {
+          Accept:
+            "application/vnd.github+json",
+          "X-GitHub-Api-Version":
+            "2022-11-28",
+        },
         next: {
           revalidate: 3600,
-        },
-        headers: {
-          Accept: "application/vnd.github+json",
         },
       }
     )
 
+    console.log(
+      "GitHub API status:",
+      response.status
+    )
+
     if (!response.ok) {
-      throw new Error(
-        `GitHub API error: ${response.status}`
+      const errorText =
+        await response.text()
+
+      console.error(
+        "GitHub API error:",
+        response.status,
+        errorText
       )
+
+      return []
     }
 
-    const repos: GitHubProject[] =
+    const repos: GitHubRepo[] =
       await response.json()
 
-    const filteredRepos = repos.filter(
-      (repo) =>
-        !repo.fork &&
-        !repo.archived &&
-        repo.name !==
-          "nithishkumar-portfolio"
+    console.log(
+      "GitHub repos received:",
+      repos.length
     )
 
-    /*
-     * Analyze every repository.
-     *
-     * README is checked for:
-     * - Live Demo
-     * - Deployment URL
-     * - Features
-     * - Architecture
-     * - Testing
-     * - Technologies
-     */
-    const projects = await Promise.all(
-      filteredRepos.map(async (repo) => {
-        const readme = await fetchReadme(
-          GITHUB_USERNAME,
-          repo.name
-        )
-
-        const homepage =
-          repo.homepage?.trim() &&
-          isValidUrl(repo.homepage.trim())
-            ? repo.homepage.trim()
-            : null
-
-        const demoUrl =
-          homepage ||
-          extractDemoUrl(readme)
-
-        const qualityScore =
-          calculateQualityScore(
-            repo,
-            demoUrl,
-            readme
-          )
-
-        return {
-          ...repo,
-          demoUrl,
-          qualityScore,
-        }
-      })
-    )
-
-    /*
-     * Keep normal repository order by latest update.
-     *
-     * Selected Projects are sorted separately
-     * in page.tsx using qualityScore.
-     */
-    return projects.sort(
-      (a, b) =>
-        new Date(
-          b.updated_at
-        ).getTime() -
-        new Date(
-          a.updated_at
-        ).getTime()
-    )
+    return repos
+      .filter(
+        repo =>
+          !repo.fork &&
+          !repo.archived &&
+          repo.name !==
+            "nithishkumar-portfolio"
+      )
+      .sort(
+        (a, b) =>
+          new Date(b.updated_at).getTime() -
+          new Date(a.updated_at).getTime()
+      )
   } catch (error) {
     console.error(
-      "Failed to fetch GitHub repositories:",
+      "GitHub repository fetch failed:",
       error
     )
 
     return []
   }
+}
+
+async function fetchReadme(
+  repo: GitHubRepo
+): Promise<string> {
+  const branch =
+    repo.default_branch || "main"
+
+  const url =
+    `https://raw.githubusercontent.com/` +
+    `${GITHUB_USERNAME}/` +
+    `${repo.name}/` +
+    `${branch}/README.md`
+
+  try {
+    const response = await fetch(url, {
+      next: {
+        revalidate: 3600,
+      },
+    })
+
+    if (!response.ok) {
+      return ""
+    }
+
+    return await response.text()
+  } catch {
+    return ""
+  }
+}
+
+async function enrichRepository(
+  repo: GitHubRepo
+): Promise<GitHubProject> {
+  const readme =
+    await fetchReadme(repo)
+
+  const demoUrl =
+    findDemoUrl(repo, readme)
+
+  const qualityScore =
+    calculateQualityScore(
+      repo,
+      readme,
+      demoUrl
+    )
+
+  return {
+    id: repo.id,
+    name: repo.name,
+    html_url: repo.html_url,
+    homepage: repo.homepage,
+    description: repo.description,
+    language: repo.language,
+    stargazers_count:
+      repo.stargazers_count,
+    forks_count:
+      repo.forks_count,
+    topics:
+      repo.topics || [],
+    updated_at:
+      repo.updated_at,
+    fork: repo.fork,
+    archived:
+      repo.archived,
+    default_branch:
+      repo.default_branch,
+    demoUrl,
+    qualityScore,
+  }
+}
+
+export async function getGitHubProjects(): Promise<
+  GitHubProject[]
+> {
+  const repositories =
+    await fetchRepositories()
+
+  if (repositories.length === 0) {
+    return []
+  }
+
+  const results =
+    await Promise.allSettled(
+      repositories.map(repo =>
+        enrichRepository(repo)
+      )
+    )
+
+  const projects: GitHubProject[] = []
+
+  for (const result of results) {
+    if (
+      result.status === "fulfilled"
+    ) {
+      projects.push(result.value)
+    }
+  }
+
+  return projects.sort(
+    (a, b) =>
+      new Date(b.updated_at).getTime() -
+      new Date(a.updated_at).getTime()
+  )
 }
