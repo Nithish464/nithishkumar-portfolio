@@ -3,7 +3,6 @@
 import Image from "next/image"
 import { useEffect, useMemo, useState } from "react"
 import {
-  featured,
   profile,
   skills,
   experience,
@@ -14,7 +13,15 @@ import {
   type GitHubProject,
 } from "./github-projects"
 
-const cats = ["All", "AI / ML", "GenAI", "Full Stack", "Backend", "Data"]
+const cats = [
+  "All",
+  "AI / ML",
+  "GenAI",
+  "Full Stack",
+  "Backend",
+  "QA Automation",
+  "Data",
+]
 
 function infer(repo: GitHubProject) {
   const text = (
@@ -25,19 +32,40 @@ function infer(repo: GitHubProject) {
     (repo.topics || []).join(" ")
   ).toLowerCase()
 
+  /*
+   * QA Automation comes first so that
+   * Selenium / Pytest projects do not get
+   * classified as Backend or Full Stack.
+   */
   if (
-    /rag|llm|gemini|genai|agent|voicebot|nlp|resume-screener/.test(text)
+    /selenium|pytest|automation|qa|testing|test-automation|ecommerce-qa|playwright|cypress/.test(
+      text
+    )
+  ) {
+    return "QA Automation"
+  }
+
+  if (
+    /rag|llm|gemini|genai|agent|voicebot|nlp|resume-screener/.test(
+      text
+    )
   ) {
     return "GenAI"
   }
 
   if (
-    /react|next|node|mern|portal|shop|chat|scheduler|hms/.test(text)
+    /react|next|node|mern|portal|shop|chat|scheduler|hms/.test(
+      text
+    )
   ) {
     return "Full Stack"
   }
 
-  if (/flask|fastapi|api|backend|pipeline|docker/.test(text)) {
+  if (
+    /flask|fastapi|api|backend|pipeline|docker/.test(
+      text
+    )
+  ) {
     return "Backend"
   }
 
@@ -52,32 +80,57 @@ function infer(repo: GitHubProject) {
   return "Data"
 }
 
+function formatProjectName(name: string) {
+  return name
+    .replaceAll("-", " ")
+    .replace(/\b\w/g, (char) =>
+      char.toUpperCase()
+    )
+}
+
 export default function Home() {
   const emailHref = `https://mail.google.com/mail/u/0/?view=cm&fs=1&to=${encodeURIComponent(
     profile.email
   )}`
 
-  const phoneHref = `tel:${profile.phone.replace(/[^+\d]/g, "")}`
+  const phoneHref = `tel:${profile.phone.replace(
+    /[^+\d]/g,
+    ""
+  )}`
 
-  const whatsappHref = `https://wa.me/${profile.phone.replace(/\D/g, "")}`
+  const whatsappHref = `https://wa.me/${profile.phone.replace(
+    /\D/g,
+    ""
+  )}`
 
-  const [repos, setRepos] = useState<GitHubProject[]>([])
-  const [filter, setFilter] = useState("All")
+  const [repos, setRepos] = useState<
+    GitHubProject[]
+  >([])
+
+  const [filter, setFilter] =
+    useState("All")
+
   const [q, setQ] = useState("")
-  const [loading, setLoading] = useState(true)
+
+  const [loading, setLoading] =
+    useState(true)
 
   useEffect(() => {
     let mounted = true
 
     async function loadProjects() {
       try {
-        const projects = await getGitHubProjects()
+        const projects =
+          await getGitHubProjects()
 
         if (mounted) {
           setRepos(projects)
         }
       } catch (error) {
-        console.error("Failed to load GitHub projects:", error)
+        console.error(
+          "Failed to load GitHub projects:",
+          error
+        )
       } finally {
         if (mounted) {
           setLoading(false)
@@ -92,12 +145,47 @@ export default function Home() {
     }
   }, [])
 
+  /*
+   * ==========================================
+   * AUTOMATIC SELECTED PROJECTS
+   * ==========================================
+   *
+   * No manual project names.
+   *
+   * Every GitHub repository is analyzed.
+   *
+   * Highest qualityScore projects become
+   * the Selected Projects.
+   *
+   * Exactly maximum 6 projects are displayed.
+   */
+  const selectedProjects = useMemo(() => {
+    return [...repos]
+      .sort(
+        (a, b) =>
+          b.qualityScore -
+          a.qualityScore
+      )
+      .slice(0, 6)
+  }, [repos])
+
+  /*
+   * ==========================================
+   * ALL GITHUB PROJECTS
+   * ==========================================
+   *
+   * Every repository stays here.
+   *
+   * Selected projects are NOT removed.
+   */
   const list = useMemo(() => {
-    const search = q.toLowerCase().trim()
+    const search =
+      q.toLowerCase().trim()
 
     return repos.filter((repo) => {
       const categoryMatch =
-        filter === "All" || infer(repo) === filter
+        filter === "All" ||
+        infer(repo) === filter
 
       const searchText = (
         repo.name +
@@ -110,26 +198,50 @@ export default function Home() {
       ).toLowerCase()
 
       const searchMatch =
-        search === "" || searchText.includes(search)
+        search === "" ||
+        searchText.includes(search)
 
-      return categoryMatch && searchMatch
+      return (
+        categoryMatch &&
+        searchMatch
+      )
     })
   }, [repos, filter, q])
 
   return (
     <main>
-      {/* NAVIGATION */}
+      {/* ================================
+          NAVIGATION
+      ================================= */}
+
       <nav className="nav">
-        <a className="brand" href="#home">
+        <a
+          className="brand"
+          href="#home"
+        >
           NK<span>.</span>
         </a>
 
         <div className="navlinks">
-          <a href="#about">About</a>
-          <a href="#skills">Skills</a>
-          <a href="#experience">Experience</a>
-          <a href="#projects">Projects</a>
-          <a href="#contact">Contact</a>
+          <a href="#about">
+            About
+          </a>
+
+          <a href="#skills">
+            Skills
+          </a>
+
+          <a href="#experience">
+            Experience
+          </a>
+
+          <a href="#projects">
+            Projects
+          </a>
+
+          <a href="#contact">
+            Contact
+          </a>
         </div>
 
         <a
@@ -142,8 +254,14 @@ export default function Home() {
         </a>
       </nav>
 
-      {/* HERO */}
-      <section id="home" className="hero wrap">
+      {/* ================================
+          HERO
+      ================================= */}
+
+      <section
+        id="home"
+        className="hero wrap"
+      >
         <div className="heroCopy">
           <div className="eyebrow">
             AVAILABLE FOR OPPORTUNITIES · 2026
@@ -156,13 +274,18 @@ export default function Home() {
           </h1>
 
           <p className="lead">
-            I’m Nithishkumar — a Full-Stack Developer and Data Science
-            graduate focused on AI, GenAI, scalable APIs and polished
+            I’m Nithishkumar — a Full-Stack
+            Developer and Data Science
+            graduate focused on AI, GenAI,
+            scalable APIs and polished
             product experiences.
           </p>
 
           <div className="actions">
-            <a className="primary" href="#projects">
+            <a
+              className="primary"
+              href="#projects"
+            >
               Explore Projects ↓
             </a>
 
@@ -178,18 +301,33 @@ export default function Home() {
 
           <div className="miniStats">
             <div>
-              <b>{repos.length || "40+"}</b>
-              <small>Repositories</small>
+              <b>
+                {repos.length || "40+"}
+              </b>
+
+              <small>
+                Repositories
+              </small>
             </div>
 
             <div>
-              <b>4</b>
-              <small>Featured Builds</small>
+              <b>
+                {selectedProjects.length || 6}
+              </b>
+
+              <small>
+                Featured Builds
+              </small>
             </div>
 
             <div>
-              <b>AI + Web</b>
-              <small>Core Focus</small>
+              <b>
+                AI + Web
+              </b>
+
+              <small>
+                Core Focus
+              </small>
             </div>
           </div>
         </div>
@@ -212,15 +350,26 @@ export default function Home() {
             <span>✦</span>
 
             <div>
-              <b>AI × Full Stack</b>
-              <small>Build · Integrate · Ship</small>
+              <b>
+                AI × Full Stack
+              </b>
+
+              <small>
+                Build · Integrate · Ship
+              </small>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ABOUT */}
-      <section id="about" className="section wrap">
+      {/* ================================
+          ABOUT
+      ================================= */}
+
+      <section
+        id="about"
+        className="section wrap"
+      >
         <div className="sectionHead">
           <span>01</span>
           <h2>About</h2>
@@ -229,157 +378,261 @@ export default function Home() {
         <div className="aboutGrid">
           <div>
             <p className="bigText">
-              I turn ideas into usable software — from responsive interfaces
-              and REST APIs to RAG systems, LLM workflows and data-driven
-              applications.
+              I turn ideas into usable
+              software — from responsive
+              interfaces and REST APIs to
+              RAG systems, LLM workflows
+              and data-driven applications.
             </p>
 
             <p className="aboutSummary">
-              I’m a Data Science graduate with hands-on experience across
-              full-stack development, backend engineering, analytics, AI and
-              GenAI. I enjoy designing reliable APIs, building responsive
-              products, integrating LLMs and turning complex data into
-              practical solutions. My projects span asynchronous systems,
-              RAG-based knowledge assistants, AI-powered applications,
-              authentication and role-based platforms.
+              I’m a Data Science graduate
+              with hands-on experience
+              across full-stack development,
+              backend engineering, analytics,
+              AI and GenAI. I enjoy designing
+              reliable APIs, building
+              responsive products, integrating
+              LLMs and turning complex data
+              into practical solutions. My
+              projects span asynchronous
+              systems, RAG-based knowledge
+              assistants, AI-powered
+              applications, authentication
+              and role-based platforms.
             </p>
 
             <p className="aboutSummary">
-              I’m currently focused on opportunities where I can contribute
-              as a Full-Stack, Backend, AI or GenAI Developer while
-              continuing to build production-minded software.
+              I’m currently focused on
+              opportunities where I can
+              contribute as a Full-Stack,
+              Backend, AI or GenAI Developer
+              while continuing to build
+              production-minded software.
             </p>
           </div>
 
           <div className="aboutCard">
             <div>
               <b>Based in</b>
-              <span>Coimbatore, India</span>
+              <span>
+                Coimbatore, India
+              </span>
             </div>
 
             <div>
               <b>Education</b>
-              <span>Integrated M.Sc. Data Science</span>
+              <span>
+                Integrated M.Sc. Data Science
+              </span>
             </div>
 
             <div>
               <b>Focus</b>
-              <span>Full Stack · AI · GenAI</span>
+              <span>
+                Full Stack · AI · GenAI
+              </span>
             </div>
           </div>
         </div>
       </section>
 
-      {/* SKILLS */}
-      <section id="skills" className="section wrap">
+      {/* ================================
+          SKILLS
+      ================================= */}
+
+      <section
+        id="skills"
+        className="section wrap"
+      >
         <div className="sectionHead">
           <span>02</span>
-          <h2>Technical Stack</h2>
+          <h2>
+            Technical Stack
+          </h2>
         </div>
 
         <div className="skillGrid">
-          {Object.entries(skills).map(([k, v]) => (
-            <div className="skillCard" key={k}>
-              <h3>{k}</h3>
+          {Object.entries(skills).map(
+            ([k, v]) => (
+              <div
+                className="skillCard"
+                key={k}
+              >
+                <h3>{k}</h3>
 
-              <div className="chips">
-                {v.map((x) => (
-                  <span key={x}>{x}</span>
-                ))}
+                <div className="chips">
+                  {v.map((x) => (
+                    <span key={x}>
+                      {x}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          )}
         </div>
       </section>
 
-      {/* EXPERIENCE */}
-      <section id="experience" className="section wrap">
+      {/* ================================
+          EXPERIENCE
+      ================================= */}
+
+      <section
+        id="experience"
+        className="section wrap"
+      >
         <div className="sectionHead">
           <span>03</span>
           <h2>Experience</h2>
         </div>
 
         <div className="timeline">
-          {experience.map((e, i) => (
-            <article className="exp" key={e.company}>
-              <div className="dot">0{i + 1}</div>
+          {experience.map(
+            (e, i) => (
+              <article
+                className="exp"
+                key={e.company}
+              >
+                <div className="dot">
+                  0{i + 1}
+                </div>
 
-              <div className="expBody">
-                <div className="expTop">
-                  <div>
-                    <h3>{e.role}</h3>
-                    <p>{e.company}</p>
+                <div className="expBody">
+                  <div className="expTop">
+                    <div>
+                      <h3>
+                        {e.role}
+                      </h3>
+
+                      <p>
+                        {e.company}
+                      </p>
+                    </div>
+
+                    <time>
+                      {e.period}
+                    </time>
                   </div>
 
-                  <time>{e.period}</time>
-                </div>
+                  <p className="muted">
+                    {e.text}
+                  </p>
 
-                <p className="muted">{e.text}</p>
-
-                <div className="chips">
-                  {e.tags.map((t) => (
-                    <span key={t}>{t}</span>
-                  ))}
+                  <div className="chips">
+                    {e.tags.map(
+                      (t) => (
+                        <span key={t}>
+                          {t}
+                        </span>
+                      )
+                    )}
+                  </div>
                 </div>
-              </div>
-            </article>
-          ))}
+              </article>
+            )
+          )}
         </div>
       </section>
 
-      {/* PROJECTS */}
-      <section id="projects" className="section wrap">
+      {/* ================================
+          PROJECTS
+      ================================= */}
+
+      <section
+        id="projects"
+        className="section wrap"
+      >
         <div className="sectionHead">
           <span>04</span>
-          <h2>Selected Projects</h2>
-
-          <p>
-            Featured builds first. Every project links directly to GitHub.
-          </p>
+          <h2>
+            Selected Projects
+          </h2>
         </div>
 
-        {/* FEATURED PROJECTS */}
+        {/* SELECTED PROJECTS */}
+
         <div className="featuredGrid">
-          {featured.map((p, i) => (
-            <a
-              className="projectCard"
-              href={`https://github.com/Nithish464/${p.repo}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              key={p.repo}
-            >
-              <div className="projectNum">
-                0{i + 1}
+          {loading && (
+            <div className="projectsEmpty">
+              Analyzing GitHub projects...
+            </div>
+          )}
+
+          {!loading &&
+            selectedProjects.map(
+              (p, i) => (
+                <a
+                  className="projectCard"
+                  href={
+                    p.demoUrl ||
+                    p.html_url
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  key={p.id}
+                >
+                  <div className="projectNum">
+                    {String(
+                      i + 1
+                    ).padStart(2, "0")}
+                  </div>
+
+                  <div className="projectArrow">
+                    ↗
+                  </div>
+
+                  <div className="projectMeta">
+                    {infer(p)}
+                  </div>
+
+                  <h3>
+                    {formatProjectName(
+                      p.name
+                    )}
+                  </h3>
+
+                  <p>
+                    {p.description ||
+                      "Explore this project and its implementation."}
+                  </p>
+
+                  <div className="chips">
+                    {(
+                      p.topics?.length
+                        ? p.topics.slice(
+                            0,
+                            4
+                          )
+                        : [
+                            p.language ||
+                              "Project",
+                          ]
+                    ).map(
+                      (t) => (
+                        <span key={t}>
+                          {t}
+                        </span>
+                      )
+                    )}
+                  </div>
+                </a>
+              )
+            )}
+
+          {!loading &&
+            selectedProjects.length ===
+              0 && (
+              <div className="projectsEmpty">
+                No projects available yet.
               </div>
-
-              <div className="projectArrow">
-                ↗
-              </div>
-
-              <div className="projectMeta">
-                {p.category}
-              </div>
-
-              <h3>
-                {p.title}
-              </h3>
-
-              <p>
-                {p.desc}
-              </p>
-
-              <div className="chips">
-                {p.tech.map((t) => (
-                  <span key={t}>
-                    {t}
-                  </span>
-                ))}
-              </div>
-            </a>
-          ))}
+            )}
         </div>
 
-        {/* ALL GITHUB PROJECTS */}
+        {/* ================================
+            ALL GITHUB PROJECTS
+        ================================= */}
+
         <div className="allProjects">
           <div className="allTop">
             <div>
@@ -400,28 +653,35 @@ export default function Home() {
           </div>
 
           {/* FILTERS */}
+
           <div className="filters">
-            {cats.map((category) => (
-              <button
-                type="button"
-                className={
-                  filter === category
-                    ? "active"
-                    : ""
-                }
-                onClick={() =>
-                  setFilter(category)
-                }
-                key={category}
-              >
-                {category}
-              </button>
-            ))}
+            {cats.map(
+              (category) => (
+                <button
+                  type="button"
+                  className={
+                    filter === category
+                      ? "active"
+                      : ""
+                  }
+                  onClick={() =>
+                    setFilter(
+                      category
+                    )
+                  }
+                  key={category}
+                >
+                  {category}
+                </button>
+              )
+            )}
 
             <input
               value={q}
               onChange={(e) =>
-                setQ(e.target.value)
+                setQ(
+                  e.target.value
+                )
               }
               placeholder="Search projects..."
               aria-label="Search projects"
@@ -429,6 +689,7 @@ export default function Home() {
           </div>
 
           {/* LOADING */}
+
           {loading && (
             <div className="projectsEmpty">
               Loading GitHub projects...
@@ -436,69 +697,89 @@ export default function Home() {
           )}
 
           {/* REPOSITORIES */}
+
           {!loading && (
             <div className="repoGrid">
-              {list.map((repo) => (
-                <a
-                  className="repoCard"
-                  href={repo.html_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  key={repo.id}
-                >
-                  <div className="repoTop">
-                    <span className="langDot" />
+              {list.map(
+                (repo) => (
+                  <a
+                    className="repoCard"
+                    href={
+                      repo.html_url
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    key={repo.id}
+                  >
+                    <div className="repoTop">
+                      <span className="langDot" />
 
-                    {repo.language || "Project"}
+                      {repo.language ||
+                        "Project"}
 
-                    <span>
-                      ↗
-                    </span>
-                  </div>
+                      <span>
+                        ↗
+                      </span>
+                    </div>
 
-                  <h4>
-                    {repo.name
-                      .replaceAll("-", " ")
-                      .replace(
-                        /\b\w/g,
-                        (char) =>
-                          char.toUpperCase()
+                    <h4>
+                      {formatProjectName(
+                        repo.name
                       )}
-                  </h4>
+                    </h4>
 
-                  <p>
-                    {repo.description ||
-                      "Explore this repository on GitHub."}
-                  </p>
+                    <p>
+                      {repo.description ||
+                        "Explore this repository on GitHub."}
+                    </p>
 
-                  <div className="repoFoot">
-                    <span>
-                      ★ {repo.stargazers_count}
-                    </span>
+                    <div className="repoFoot">
+                      <span>
+                        ★{" "}
+                        {
+                          repo.stargazers_count
+                        }
+                      </span>
 
-                    <span>
-                      ⑂ {repo.forks_count}
-                    </span>
+                      <span>
+                        ⑂{" "}
+                        {
+                          repo.forks_count
+                        }
+                      </span>
 
-                    <span>
-                      {infer(repo)}
-                    </span>
-                  </div>
-                </a>
-              ))}
+                      <span>
+                        {infer(repo)}
+                      </span>
+
+                      {repo.demoUrl && (
+                        <span>
+                          Live ↗
+                        </span>
+                      )}
+                    </div>
+                  </a>
+                )
+              )}
             </div>
           )}
 
           {/* NO RESULTS */}
-          {!loading && list.length === 0 && (
-            <div className="projectsEmpty">
-              No projects found for this search or category.
-            </div>
-          )}
+
+          {!loading &&
+            list.length === 0 && (
+              <div className="projectsEmpty">
+                No projects found for
+                this search or category.
+              </div>
+            )}
         </div>
       </section>
 
-      {/* EDUCATION */}
+      {/* ================================
+          EDUCATION
+      ================================= */}
+
       <section className="section wrap">
         <div className="sectionHead">
           <span>05</span>
@@ -506,26 +787,39 @@ export default function Home() {
         </div>
 
         <div className="education">
-          {education.map((e) => (
-            <div
-              className="edu"
-              key={e[0]}
-            >
-              <div>
-                <h3>{e[0]}</h3>
-                <p>{e[1]}</p>
-              </div>
+          {education.map(
+            (e) => (
+              <div
+                className="edu"
+                key={e[0]}
+              >
+                <div>
+                  <h3>
+                    {e[0]}
+                  </h3>
 
-              <span>
-                {e[2]}
-              </span>
-            </div>
-          ))}
+                  <p>
+                    {e[1]}
+                  </p>
+                </div>
+
+                <span>
+                  {e[2]}
+                </span>
+              </div>
+            )
+          )}
         </div>
       </section>
 
-      {/* CONTACT */}
-      <section id="contact" className="contact wrap">
+      {/* ================================
+          CONTACT
+      ================================= */}
+
+      <section
+        id="contact"
+        className="contact wrap"
+      >
         <div className="eyebrow">
           LET’S BUILD SOMETHING
         </div>
@@ -535,7 +829,9 @@ export default function Home() {
         </h2>
 
         <p>
-          Open to full-stack, backend, AI and GenAI opportunities.
+          Open to full-stack,
+          backend, AI and GenAI
+          opportunities.
         </p>
 
         <div className="contactActions">
@@ -602,7 +898,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* FOOTER */}
+      {/* ================================
+          FOOTER
+      ================================= */}
+
       <footer>
         <span>
           © 2026 Nithishkumar K
